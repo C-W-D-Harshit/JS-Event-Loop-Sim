@@ -1,4 +1,4 @@
-import { Globe, Server } from "lucide-react";
+import { Globe, Server, Code2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,14 +13,29 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSimulatorContext } from "./SimulatorProvider";
 import { scenarios } from "@/lib/simulator/scenarios";
 import type { Runtime } from "@/lib/simulator/types";
+import { useState } from "react";
 
 export function ScenarioSelector() {
-  const { state, loadScenarioById, setRuntime, currentScenario } =
+  const { state, loadScenarioById, setRuntime, currentScenario, loadCustomCode } =
     useSimulatorContext();
+
+  const [isCustomMode, setIsCustomMode] = useState(false);
 
   const filteredScenarios = scenarios.filter(
     (s) => s.runtime === "both" || s.runtime === state.runtime
   );
+
+  const handleCustomCodeClick = () => {
+    setIsCustomMode(true);
+    // Dispatch event to notify parent component
+    window.dispatchEvent(new CustomEvent('customCodeMode', { detail: { active: true } }));
+  };
+
+  const handleScenarioClick = (id: string) => {
+    setIsCustomMode(false);
+    loadScenarioById(id);
+    window.dispatchEvent(new CustomEvent('customCodeMode', { detail: { active: false } }));
+  };
 
   const runtimeOptions: { value: Runtime; label: string; icon: typeof Globe }[] = [
     { value: "browser", label: "Browser", icon: Globe },
@@ -48,6 +63,16 @@ export function ScenarioSelector() {
         </TabsList>
       </Tabs>
 
+      <Button
+        variant={isCustomMode ? "default" : "outline"}
+        size="sm"
+        className="gap-1.5"
+        onClick={handleCustomCodeClick}
+      >
+        <Code2 className="size-3.5" />
+        Custom Code
+      </Button>
+
       <DropdownMenu>
         <DropdownMenuTrigger
           render={(triggerProps) => (
@@ -70,7 +95,7 @@ export function ScenarioSelector() {
             {filteredScenarios.map((scenario) => (
               <DropdownMenuItem
                 key={scenario.id}
-                onClick={() => loadScenarioById(scenario.id)}
+                onClick={() => handleScenarioClick(scenario.id)}
               >
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate">{scenario.title}</span>
