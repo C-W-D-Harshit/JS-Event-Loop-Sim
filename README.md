@@ -38,6 +38,13 @@ Each scenario includes:
 - **Runtime Switching**: Toggle between browser and Node.js to compare behaviors
 - **Queue Inspection**: See tasks waiting in microtask, macrotask, and nextTick queues
 - **Web API Progress**: Watch async operations complete with progress indicators
+- **Custom Code Editor**: Write your own JavaScript code and visualize its event loop behavior
+  - Syntax-highlighted code editor with PrismJS
+  - 10+ built-in presets covering common async patterns
+  - Real-time simulation of your code
+  - Keyboard shortcut: Ctrl+Enter to run
+  - Tab key support for code indentation
+  - Load presets with one click
 
 ### 🎨 Modern UI/UX
 - **Resizable Panels**: Customize your workspace layout on desktop

@@ -2,6 +2,7 @@ import { useReducer, useCallback, useEffect, useRef } from 'react';
 import type { SimulatorState, Scenario, Runtime, TaskType, ScenarioStep } from '@/lib/simulator/types';
 import { simulatorReducer, createInitialState } from '@/lib/simulator/engine';
 import { scenarios } from '@/lib/simulator/scenarios';
+import { createCustomScenario } from '@/lib/simulator/codeParser';
 
 export function useSimulator(initialRuntime: Runtime = 'browser') {
   const [state, dispatch] = useReducer(simulatorReducer, initialRuntime, createInitialState);
@@ -22,6 +23,11 @@ export function useSimulator(initialRuntime: Runtime = 'browser') {
     if (scenario) {
       loadScenario(scenario);
     }
+  }, [loadScenario]);
+
+  const loadCustomCode = useCallback((code: string) => {
+    const customScenario = createCustomScenario(code);
+    loadScenario(customScenario);
   }, [loadScenario]);
 
   const executeNextStep = useCallback(() => {
@@ -146,6 +152,7 @@ export function useSimulator(initialRuntime: Runtime = 'browser') {
 
     loadScenario,
     loadScenarioById,
+    loadCustomCode,
     stepForward,
     stepBackward,
     play,
