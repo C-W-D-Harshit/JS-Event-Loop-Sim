@@ -47,7 +47,6 @@ export function useSimulator(initialRuntime: Runtime = 'browser') {
   }, []);
 
   const stepForward = useCallback(() => {
-    dispatch({ type: 'STEP_FORWARD' });
     executeNextStep();
   }, [executeNextStep]);
 
