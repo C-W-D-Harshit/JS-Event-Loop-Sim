@@ -50,6 +50,7 @@ export interface Task {
 
 export interface AsyncOperation {
   id: string;
+  traceId?: string;
   type: TaskType;
   label: string;
   sourceLineStart: number;
@@ -114,10 +115,12 @@ export type ScenarioAction =
   | { type: 'enqueueMacrotask'; task: Omit<Task, 'id' | 'createdAtStep'> }
   | { type: 'enqueueNextTick'; task: Omit<Task, 'id' | 'createdAtStep'> }
   | { type: 'startAsync'; operation: Omit<AsyncOperation, 'id' | 'progress'> }
+  | { type: 'cancelAsync'; traceId: string }
   | { type: 'tickAsync' }
   | { type: 'setPhase'; phase: Phase }
   | { type: 'dequeueAndRun'; queue: 'microtask' | 'macrotask' | 'nextTick' }
   | { type: 'runRender' }
+  | { type: 'setHighlightedLines'; lines: number[] }
   | { type: 'complete' };
 
 export interface Scenario {

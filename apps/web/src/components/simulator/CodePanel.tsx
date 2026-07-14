@@ -7,25 +7,47 @@ import {
 } from "@/components/ui/card";
 import { useSimulatorContext } from "./SimulatorProvider";
 import { cn } from "@/lib/utils";
-import { useMemo } from "react";
-import Prism from "prismjs";
-import "prismjs/components/prism-javascript";
-import "prismjs/themes/prism-tomorrow.css";
+import { useState, useEffect, useCallback } from "react";
+import { CodeEditor } from "./CodeEditor";
 
 export function CodePanel({ className }: { className?: string }) {
-  const { state, currentScenario } = useSimulatorContext();
+  const {
+    state,
+    currentScenario,
+    editableCode,
+    diagnostics,
+    compileAndLoad,
+    hasDiagnostics,
+    isSandboxRunning,
+    sandboxError,
+  } = useSimulatorContext();
 
-  const highlightedCode = useMemo(() => {
-    if (!currentScenario) return [];
-    
-    const html = Prism.highlight(
-      currentScenario.code,
-      Prism.languages.javascript,
-      "javascript"
-    );
-    
-    return html.split("\n");
+  const [isEditing, setIsEditing] = useState(false);
+  const [localCode, setLocalCode] = useState("");
+
+  useEffect(() => {
+    if (currentScenario) {
+      setLocalCode(currentScenario.code);
+    }
   }, [currentScenario]);
+
+  const handleSave = useCallback(async () => {
+    const succeeded = await compileAndLoad(localCode);
+    if (succeeded) setIsEditing(false);
+  }, [localCode, compileAndLoad]);
+
+  const handleCancel = useCallback(() => {
+    setLocalCode(currentScenario?.code || editableCode || "");
+    setIsEditing(false);
+  }, [currentScenario, editableCode]);
+
+  const handleDoubleClick = useCallback(() => {
+    if (!isEditing && !isSandboxRunning) {
+      setIsEditing(true);
+    }
+  }, [isEditing, isSandboxRunning]);
+
+  const highlightedLines = state.highlightedLines;
 
   if (!currentScenario) {
     return (
@@ -41,52 +63,143 @@ export function CodePanel({ className }: { className?: string }) {
     );
   }
 
-  const highlightLines = state.highlightedLines;
-
   return (
     <Card
       size="sm"
       className={cn("flex h-full flex-col overflow-hidden", className ?? "")}
     >
       <CardHeader className="border-b">
-        <CardTitle className="text-sm">{currentScenario.title}</CardTitle>
-        <CardDescription>{currentScenario.description}</CardDescription>
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <CardTitle className="text-sm">
+              {currentScenario.title}
+              {isSandboxRunning && (
+                <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                  Running...
+                </span>
+              )}
+              {sandboxError && !isEditing && (
+                <span className="ml-2 rounded-full bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
+                  Error
+                </span>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {currentScenario.description}
+              {isEditing && (
+                <span className="ml-2 text-primary"> - Editing mode</span>
+              )}
+              {isSandboxRunning && (
+                <span className="ml-2 text-primary"> - Compiling sandbox...</span>
+              )}
+            </CardDescription>
+          </div>
+          {!isSandboxRunning && !isEditing && (
+            <button
+              type="button"
+              onClick={handleDoubleClick}
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Edit Code
+            </button>
+          )}
+          {isEditing && !isSandboxRunning && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Save & Run
+              </button>
+            </div>
+          )}
+        </div>
       </CardHeader>
 
-      <CardContent className="min-h-0 flex-1 overflow-auto p-0 font-mono text-sm">
-        <pre className="p-4">
-          {highlightedCode.map((lineHtml, i) => {
-            const lineNum = i + 1;
-            const isHighlighted = highlightLines.includes(lineNum);
+      {sandboxError && !isEditing && (
+        <div className="border-b bg-destructive/10 px-4 py-3 text-xs text-destructive">
+          <strong className="font-semibold">Error:</strong> {sandboxError}
+          <button
+            type="button"
+            onClick={handleDoubleClick}
+            className="mt-2 ml-2 text-sm underline hover:no-underline"
+            disabled={isSandboxRunning}
+          >
+            Edit to fix →
+          </button>
+        </div>
+      )}
 
-            return (
+      {isSandboxRunning && (
+        <div className="border-b bg-primary/10 px-4 py-3 text-xs text-primary">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span>Running sandbox execution...</span>
+            <span className="text-muted-foreground">(Instrumenting and executing code in Web Worker)</span>
+          </div>
+        </div>
+      )}
+
+      {hasDiagnostics && !isEditing && !sandboxError && (
+        <div className="border-b bg-destructive/10 px-4 py-3 text-xs text-destructive">
+          <strong className="font-semibold">Compilation Error(s):</strong>
+          <div className="mt-1 space-y-1">
+            {diagnostics.map((diag) => (
               <div
-                key={i}
-                className={`group flex rounded-sm px-1 transition-colors duration-150 hover:bg-muted/40 ${
-                  isHighlighted ? "bg-primary/10 ring-1 ring-primary/20" : ""
-                }`}
+                key={`${diag.line ?? "global"}-${diag.column ?? 0}-${diag.message}`}
+                className="font-mono"
               >
-                <span className="w-10 shrink-0 select-none pr-3 text-right text-[11px] leading-6 text-muted-foreground/60">
-                  {lineNum}
-                </span>
-                <code
-                  className={
-                    isHighlighted
-                      ? "leading-6 text-foreground"
-                      : "leading-6"
-                  }
-                  dangerouslySetInnerHTML={{ __html: lineHtml || " " }}
-                />
+                {diag.line && `Line ${diag.line}: `}
+                {diag.message}
               </div>
-            );
-          })}
-        </pre>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={handleDoubleClick}
+            className="mt-2 text-sm underline hover:no-underline"
+            disabled={isSandboxRunning}
+          >
+            Double-click to fix →
+          </button>
+        </div>
+      )}
+
+      <CardContent
+        className={cn(
+          "min-h-0 flex-1 overflow-auto p-0 font-mono text-sm",
+          isSandboxRunning ? "opacity-50" : ""
+        )}
+        onDoubleClick={!isSandboxRunning ? handleDoubleClick : undefined}
+        style={{ cursor: isEditing ? 'text' : (!isSandboxRunning ? 'default' : 'not-allowed') }}
+      >
+        <CodeEditor
+          code={isEditing ? localCode : currentScenario.code}
+          highlightedLines={highlightedLines}
+          readOnly={!isEditing || isSandboxRunning}
+          onChange={setLocalCode}
+          className="h-full"
+        />
       </CardContent>
 
-      {currentScenario.explanation && (
+      {currentScenario.explanation && !isEditing && !isSandboxRunning && (
         <div className="shrink-0 border-t bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
           <strong className="text-foreground">Why?</strong>{" "}
           {currentScenario.explanation}
+        </div>
+      )}
+
+      {!isEditing && !isSandboxRunning && !hasDiagnostics && !sandboxError && currentScenario.explanation && (
+        <div className="shrink-0 border-t bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
+          💡 Tip: Double-click the code to start editing
         </div>
       )}
     </Card>

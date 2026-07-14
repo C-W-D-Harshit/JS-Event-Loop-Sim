@@ -194,6 +194,24 @@ function executeAction(state: SimulatorState, action: ScenarioAction): Simulator
       });
     }
 
+    case 'cancelAsync': {
+      const operation = state.webApis.find((item) => item.traceId === action.traceId);
+      if (!operation) return state;
+
+      return addEventLog(
+        {
+          ...state,
+          webApis: state.webApis.filter((item) => item.traceId !== action.traceId),
+        },
+        {
+          action: 'complete',
+          target: 'webApis',
+          taskId: operation.id,
+          taskLabel: `${operation.label} (cancelled)`,
+        }
+      );
+    }
+
     case 'tickAsync': {
       const updatedApis: AsyncOperation[] = [];
       let newState = state;
@@ -309,6 +327,13 @@ function executeAction(state: SimulatorState, action: ScenarioAction): Simulator
         { ...state, phase: 'render' },
         { action: 'start', target: 'render', message: 'Render cycle' }
       );
+    }
+
+    case 'setHighlightedLines': {
+      return {
+        ...state,
+        highlightedLines: action.lines,
+      };
     }
 
     case 'complete': {
